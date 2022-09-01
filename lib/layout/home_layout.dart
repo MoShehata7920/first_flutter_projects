@@ -1,5 +1,6 @@
 // ignore_for_file: invalid_required_positional_param
 
+import 'package:conditional_builder_null_safety/conditional_builder_null_safety.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:projects/modules/archieved_tasks/archived_tasks_screen.dart';
@@ -7,6 +8,8 @@ import 'package:projects/modules/done_tasks/done_tasks_screen.dart';
 import 'package:projects/modules/new_tasks/new_tasks_screen.dart';
 import 'package:projects/shared/component/components.dart';
 import 'package:sqflite/sqflite.dart';
+
+import '../shared/component/constants.dart';
 
 //1. create database
 //2. create tables
@@ -49,6 +52,7 @@ class _HomeLayoutState extends State<HomeLayout> {
 
 
 
+
   @override
   void initState() {
     super.initState();
@@ -65,7 +69,12 @@ class _HomeLayoutState extends State<HomeLayout> {
           titles[currentIndex],
         ),
       ),
-      body: Screens[currentIndex] ,
+      body:
+          ConditionalBuilder(
+            condition: tasks.isNotEmpty,
+            fallback: (BuildContext context) => Center(child: const CircularProgressIndicator(),) ,
+            builder: (BuildContext context) => Screens[currentIndex] ,
+          ) ,
       floatingActionButton: FloatingActionButton(
           onPressed: () async
           {
@@ -78,11 +87,17 @@ class _HomeLayoutState extends State<HomeLayout> {
                   time : timeController.text ,
                   date : dateController.text ,
                 ).then((value) {
-                  Navigator.pop(context) ;
-                  isBottomSheetShown = false ;
-                  setState(() {
-                    fabIcon = Icons.edit ;
-                  });
+                  getDataFromDatabase(database).then((value)
+                  {
+                    Navigator.pop(context) ;
+                    setState(() {
+                      isBottomSheetShown = false ;
+                      fabIcon = Icons.edit ;
+                      tasks = value ;
+                      // ignore: avoid_print
+                      print(tasks) ;
+                    });
+                  }) ;
                 }) ;
 
               }
@@ -176,7 +191,12 @@ class _HomeLayoutState extends State<HomeLayout> {
                         ),
                       ),
                 elevation: 20.0 ,
-              ) ;
+              ).closed.then((value) {
+                isBottomSheetShown = false ;
+                setState(() {
+                  fabIcon = Icons.edit ;
+                });
+              }) ;
               isBottomSheetShown = true ;
               setState(() {
                 fabIcon = Icons.add ;
@@ -244,10 +264,10 @@ class _HomeLayoutState extends State<HomeLayout> {
     );
   }
 
-  Future<String> getName () async
-  {
-    return 'MO Shehata' ;
-  }
+  // Future<String> getName () async
+  // {
+  //   return 'MO Shehata' ;
+  // }
 
   void createDatabase() async
   {
@@ -273,6 +293,14 @@ class _HomeLayoutState extends State<HomeLayout> {
 
       onOpen: (database)
         {
+          getDataFromDatabase(database).then((value)
+          {
+            setState(() {
+              tasks = value ;
+              // ignore: avoid_print
+              print(tasks) ;
+            });
+          }) ;
           // ignore: avoid_print
           print('database opened');
         },
@@ -287,7 +315,7 @@ class _HomeLayoutState extends State<HomeLayout> {
   {
     return await database.transaction((txn)
     async {
-      txn.rawInsert('INSERT INTO tasks(title , date , time , status) VALUES("$title" , "$time" , "$date" , "fine")')
+      txn.rawInsert('INSERT INTO tasks(title , date , time , status) VALUES("$title" , "$date" , "$time" , "fine")')
           .then((value) {
             // ignore: avoid_print
             print('$value inserted successfully' );
@@ -297,5 +325,10 @@ class _HomeLayoutState extends State<HomeLayout> {
       } ) ;
     }
     ) ;
+  }
+
+  Future <List<Map>> getDataFromDatabase (database) async
+  {
+     return await database.rawQuery('SELECT * FROM tasks') ;
   }
 }
